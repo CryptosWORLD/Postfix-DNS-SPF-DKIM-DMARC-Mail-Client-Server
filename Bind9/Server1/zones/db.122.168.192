@@ -1,0 +1,18 @@
+;
+; BIND reverse data file for local loopback interface
+;
+$TTL    604800
+@       IN      SOA     dns1.dns01.web. admin.dns1.dns01.web. (
+                              3         ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+
+; name servers - NS records
+      IN      NS      dns1.dns01.web.
+      IN      NS      dns2.dns01.web.
+
+; PTR Records
+100   IN      PTR     dns1.dns01.web.
+101   IN      PTR     dns2.dns01.web.

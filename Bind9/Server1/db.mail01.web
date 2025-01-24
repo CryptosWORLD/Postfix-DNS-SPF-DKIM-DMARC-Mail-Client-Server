@@ -1,0 +1,14 @@
+$TTL    604800
+@       IN      SOA     dns1.dns01.web. admin.dns01.web. (
+                              3         ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+@                       IN      NS      dns1.dns01.web.
+                        IN      A       192.168.122.50
+mail                    IN      A       192.168.122.50
+                        IN      MX      10 mail.mail01.web.
+@                       IN      TXT     "v=spf1 a mx ~all"
+default._domainkey      IN      TXT     "v=DKIM1; h=sha256; k=rsa;" "p= *** "
+_dmarc                  IN TXT   "v=DMARC1; p=none; pct=100; fo=1; rua=mailto:debian@mail01.web"
