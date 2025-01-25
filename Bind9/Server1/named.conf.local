@@ -14,8 +14,8 @@ zone "dns01.web" {
 
 zone "122.168.192.in-addr.arpa" {
     type master;
-    file "/etc/bind/zones/db.122.168.192";  # 10.128.0.0/16 subnet
-    allow-transfer { 192.168.122.101; };  # ns2 private IP address - secondary
+    file "/etc/bind/zones/db.122.168.192";  # subnet
+    allow-transfer { 192.168.122.101; };    # ns2 private IP address - secondary
 };
 
 zone "mail01.web" {

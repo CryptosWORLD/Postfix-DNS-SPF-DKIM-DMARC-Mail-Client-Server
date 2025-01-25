@@ -1,60 +1,57 @@
-
-
-
+nameserver_address='192.168.188.10'
 
 sudo apt update
-sudo dhclient
-sudo apt update
-sudo hostnamectl set-hostname srv-smtp-01.mail01.web
-sudo apt-get install postfix -y
-sudo apt install telnet
-sudo apt install dovecot-lmtpd
+sudo hostnamectl set-hostname srv-smtp-01.mail02.web
+sudo apt install postfix -y
+sudo apt install telnet -y
+sudo apt install dovecot-lmtpd -y
 
 sudo postconf mail_spool_directory
 
 sudo systemctl restart postfix
-sudo apt-get install mailutils
+sudo apt install mailutils -y
 
 cat << 'EOF' > create-cert.sh
 #!/bin/bash
-openssl genrsa -des3 -out mail.mail01.web.key 2048
-chmod 600 mail.mail01.web.key
-openssl req -new -key mail.mail01.web.key -out mail.mail01.web.csr -subj "/C=CH/ST=VD/L=SteCroix/O=LoucSA/CN=mail.mail01.web"
+openssl genrsa -des3 -out mail.mail02.web.key 2048
+chmod 600 mail.mail02.web.key
+openssl req -new -key mail.mail02.web.key -out mail.mail02.web.csr -subj "/C=CH/ST=VD/L=SteCroix/O=LoucSA/CN=mail.mail02.web"
 
+openssl x509 -req -days 365 -in mail.mail02.web.csr -signkey mail.mail02.web.key -out mail.mail02.web.crt
 
-openssl x509 -req -days 365 -in mail.mail01.web.csr -signkey mail.mail01.web.key -out mail.mail01.web.crt
-
-openssl rsa -in mail.mail01.web.key -out mail.mail01.web.key.nopass
-mv mail.mail01.web.key.nopass mail.mail01.web.key
+openssl rsa -in mail.mail02.web.key -out mail.mail02.web.key.nopass
+mv mail.mail02.web.key.nopass mail.mail02.web.key
 openssl req -new -x509 -extensions v3_ca -keyout cakey.pem -out cacert.pem -subj "/C=CH/ST=VD/L=SteCroix/O=LoucSA/CN=root-ca.LoucSA.local" -days 3650 
-chmod 600 mail.mail01.web.key
+
+
+chmod 600 mail.mail02.web.key
 chmod 600 cakey.pem
-mv mail.mail01.web.key /etc/ssl/private/
-mv mail.mail01.web.crt /etc/ssl/certs/
+mv mail.mail02.web.key /etc/ssl/private/
+mv mail.mail02.web.crt /etc/ssl/certs/
 mv cakey.pem /etc/ssl/private/
 mv cacert.pem /etc/ssl/certs/
 postconf -e 'smtpd_tls_auth_only = no'
 postconf -e 'smtp_use_tls = yes'
 postconf -e 'smtpd_use_tls = yes'
 postconf -e 'smtp_tls_note_starttls_offer = yes'
-postconf -e 'smtpd_tls_key_file = /etc/ssl/private/mail.mail01.web.key'
-postconf -e 'smtpd_tls_cert_file = /etc/ssl/certs/mail.mail01.web.crt'
+postconf -e 'smtpd_tls_key_file = /etc/ssl/private/mail.mail02.web.key'
+postconf -e 'smtpd_tls_cert_file = /etc/ssl/certs/mail.mail02.web.crt'
 postconf -e 'smtpd_tls_CAfile = /etc/ssl/certs/cacert.pem'
 postconf -e 'smtpd_tls_loglevel = 1'
 postconf -e 'smtpd_tls_received_header = yes'
 postconf -e 'smtpd_tls_session_cache_timeout = 3600s'
 postconf -e 'tls_random_source = dev:/dev/urandom'
-postconf -e 'myhostname = mail.mail01.web'
+postconf -e 'myhostname = mail.mail02.web'
 EOF
 
 sudo chmod +x create-cert.sh
 sudo ./create-cert.sh
 
-sudo apt install dovecot-core dovecot-imapd
+sudo apt install dovecot-core dovecot-imapd -y
 sudo postconf mail_spool_directory
 sudo adduser dovecot mail
 
-cat << 'EOF' >  /etc/dovecot/dovecot.conf
+cat << 'EOF' > /etc/dovecot/dovecot.conf
 ## Dovecot configuration file
 
 protocols = imap lmtp
@@ -81,7 +78,7 @@ auth_mechanisms = plain login
 EOF
 
 
-cat << 'EOF' >  /etc/dovecot/conf.d/10-master.conf
+cat << 'EOF' > /etc/dovecot/conf.d/10-master.conf
 
 service imap-login {
   inet_listener imap {
@@ -188,12 +185,12 @@ protocol !indexer-worker {
 EOF
 
 
-cat << 'EOF' >  /etc/dovecot/conf.d/10-ssl.conf
+cat << 'EOF' > /etc/dovecot/conf.d/10-ssl.conf
 # SSL/TLS support: yes, no, required. <doc/wiki/SSL.txt>
 ssl = required
 
-ssl_cert = </etc/ssl/certs/mail.mail01.web.crt
-ssl_key = </etc/ssl/private/mail.mail01.web.key
+ssl_cert = </etc/ssl/certs/mail.mail02.web.crt
+ssl_key = </etc/ssl/private/mail.mail02.web.key
 
 ssl_client_ca_dir = /etc/ssl/certs
 
@@ -205,8 +202,8 @@ ssl_min_protocol = TLSv1.2
 ssl_prefer_server_ciphers = yes
 EOF
 
+sudo apt install postfix-policyd-spf-python -y
 
-sudo apt install postfix-policyd-spf-python
 cat << 'EOF' > /etc/postfix/master.cf
 #
 # Postfix master process configuration file.  For details on the format
@@ -293,7 +290,7 @@ EOF
 
 sudo systemctl restart postfix
 sudo systemctl restart dovecot
-sudo apt install opendkim opendkim-tools
+sudo apt install opendkim opendkim-tools -y
 sudo gpasswd -a postfix opendkim
 
 sudo mkdir -p /etc/opendkim/keys
@@ -301,103 +298,47 @@ sudo chown -R opendkim:opendkim /etc/opendkim
 sudo chmod go-rw /etc/opendkim/keys
 
 cat << 'EOF' > /etc/opendkim/signing.table
-*@mail01.web      default._domainkey.mail01.web
-*@*.mail01.web    default._domainkey.mail01.web
+*@mail02.web      default._domainkey.mail02.web
+*@*.mail02.web    default._domainkey.mail02.web
 EOF
-
 
 cat << 'EOF' > /etc/opendkim/key.table
+default._domainkey.mail02.web     mail02.web:default:/etc/opendkim/keys/mail02.web/default.private
 EOF
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 cat << 'EOF' > /etc/opendkim/trusted.hosts
 127.0.0.1
 localhost
 
-.mail01.web
+.mail02.web
 EOF
 
-sudo mkdir /etc/opendkim/keys/mail01.web
-sudo opendkim-genkey -b 2048 -d mail01.web -D /etc/opendkim/keys/mail01.web -s default -v
-sudo chown opendkim:opendkim /etc/opendkim/keys/mail01.web/default.private
-sudo chmod 600 /etc/opendkim/keys/mail01.web/default.private
-sudo cat /etc/opendkim/keys/mail01.web/default.txt
+sudo mkdir /etc/opendkim/keys/mail02.web
+sudo opendkim-genkey -b 2048 -d mail02.web -D /etc/opendkim/keys/mail02.web -s default -v
+sudo chown opendkim:opendkim /etc/opendkim/keys/mail02.web/default.private
+sudo chmod 600 /etc/opendkim/keys/mail02.web/default.private
+sudo cat /etc/opendkim/keys/mail02.web/default.txt
 
-
-sudo opendkim-testkey -d mail01.web -s default -vvv
 sudo mkdir /var/spool/postfix/opendkim
 sudo chown opendkim:postfix /var/spool/postfix/opendkim
 
-cat << 'EOF' >  /etc/opendkim.conf
-
-# This is a basic configuration for signing and verifying. It can easily be
-# adapted to suit a basic installation. See opendkim.conf(5) and
-# /usr/share/doc/opendkim/examples/opendkim.conf.sample for complete
-# documentation of available configuration parameters.
-
+cat <<EOF > /etc/opendkim.conf
 Syslog                  yes
 SyslogSuccess           yes
-#LogWhy                 no
 
-# Common signing and verification parameters. In Debian, the "From" header is
-# oversigned, because it is often the identity key used by reputation systems
-# and thus somewhat security sensitive.
 Canonicalization        relaxed/simple
 Mode                    sv
 SubDomains              no
 OversignHeaders         From
 
-# Signing domain, selector, and key (required). For example, perform signing
-# for domain "example.com" with selector "2020" (2020._domainkey.example.com),
-# using the private key stored in /etc/dkimkeys/example.private. More granular
-# setup options can be found in /usr/share/doc/opendkim/README.opendkim.
-#Domain                 example.com
-#Selector               2020
-#KeyFile                /etc/dkimkeys/example.private
-
-# In Debian, opendkim runs as user "opendkim". A umask of 007 is required when
-# using a local socket with MTAs that access the socket as a non-privileged
-# user (for example, Postfix). You may need to add user "postfix" to group
-# "opendkim" in that case.
 UserID                  opendkim
 UMask                   007
 
-# Socket for the MTA connection (required). If the MTA is inside a chroot jail,
-# it must be ensured that the socket is accessible. In Debian, Postfix runs in
-# a chroot in /var/spool/postfix, therefore a Unix socket would have to be
-# configured as shown on the last line below.
-#Socket                 local:/run/opendkim/opendkim.sock
-#Socket                 inet:8891@localhost
-#Socket                 inet:8891
 Socket                  local:/var/spool/postfix/opendkim/opendkim.sock
 
 PidFile                 /run/opendkim/opendkim.pid
 
-# Hosts for which to sign rather than verify, default is 127.0.0.1. See the
-# OPERATION section of opendkim(8) for more information.
-#InternalHosts          192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12
-
-# The trust anchor enables DNSSEC. In Debian, the trust anchor file is provided
-# by the package dns-root-data.
-#TrustAnchorFile                /usr/share/dns/root.key
-Nameservers             192.168.122.100
+Nameservers             $nameserver_address
 
 # Map domains in From addresses to keys used to sign messages
 KeyTable           refile:/etc/opendkim/key.table
@@ -410,28 +351,11 @@ ExternalIgnoreList  /etc/opendkim/trusted.hosts
 InternalHosts       /etc/opendkim/trusted.hosts
 EOF
 
+cat << 'EOF' > /etc/default/opendkim
 
-
-cat << 'EOF' >  /etc/default/opendkim
-# NOTE: This is a legacy configuration file. It is not used by the opendkim
-# systemd service. Please use the corresponding configuration parameters in
-# /etc/opendkim.conf instead.
-#
-# Previously, one would edit the default settings here, and then execute
-# /lib/opendkim/opendkim.service.generate to generate systemd override files at
-# /etc/systemd/system/opendkim.service.d/override.conf and
-# /etc/tmpfiles.d/opendkim.conf. While this is still possible, it is now
-# recommended to adjust the settings directly in /etc/opendkim.conf.
-#
-#DAEMON_OPTS=""
-# Change to /var/spool/postfix/run/opendkim to use a Unix socket with
-# postfix in a chroot:
 #RUNDIR=/var/spool/postfix/run/opendkim
 RUNDIR=/run/opendkim
-#
-# Uncomment to specify an alternate socket
-# Note that setting this will override any Socket value in opendkim.conf
-# default:
+
 #SOCKET=local:$RUNDIR/opendkim.sock
 SOCKET="local:/var/spool/postfix/opendkim/opendkim.sock"
 
@@ -449,46 +373,11 @@ EOF
 
 
 cat << 'EOF' > /etc/postfix/main.cf
-# NOTE: This is a legacy configuration file. It is not used by the opendkim
-# systemd service. Please use the corresponding configuration parameters in
-# /etc/opendkim.conf instead.
-#
-# Previously, one would edit the default settings here, and then execute
-# /lib/opendkim/opendkim.service.generate to generate systemd override files at
-# /etc/systemd/system/opendkim.service.d/override.conf and
-# /etc/tmpfiles.d/opendkim.conf. While this is still possible, it is now
-# recommended to adjust the settings directly in /etc/opendkim.conf.
-#
-#DAEMON_OPTS=""
-# Change to /var/spool/postfix/run/opendkim to use a Unix socket with
-# postfix in a chroot:
-#RUNDIR=/var/spool/postfix/run/opendkim
-RUNDIR=/run/opendkim
-#
-# Uncomment to specify an alternate socket
-# Note that setting this will override any Socket value in opendkim.conf
-# default:
-#SOCKET=local:$RUNDIR/opendkim.sock
-SOCKET="local:/var/spool/postfix/opendkim/opendkim.sock"
-
-# listen on all interfaces on port 54321:
-#SOCKET=inet:54321
-# listen on loopback on port 12345:
-#SOCKET=inet:12345@localhost
-# listen on 192.0.2.1 on port 12345:
-#SOCKET=inet:12345@192.0.2.1
-USER=opendkim
-GROUP=opendkim
-PIDFILE=$RUNDIR/$NAME.pid
-EXTRAAFTER=
-root@srv-smtp-01:~# ^C
-root@srv-smtp-01:~# sudo cat /etc/postfix/main.cf
 # See /usr/share/postfix/main.cf.dist for a commented, more complete version
 
-
 #Enable TLS Encryption when Postfix receives incoming emails
-smtpd_tls_cert_file=/etc/ssl/certs/mail.mail01.web.crt
-smtpd_tls_key_file=/etc/ssl/private/mail.mail01.web.key
+smtpd_tls_cert_file=/etc/ssl/certs/mail.mail02.web.crt
+smtpd_tls_key_file=/etc/ssl/private/mail.mail02.web.key
 smtpd_tls_security_level=may
 smtpd_tls_loglevel = 1
 smtpd_tls_session_cache_database = btree:${data_directory}/smtpd_scache
@@ -527,8 +416,8 @@ compatibility_level = 3.6
 
 
 # TLS parameters
-smtpd_tls_cert_file = /etc/ssl/certs/mail.mail01.web.crt
-smtpd_tls_key_file = /etc/ssl/private/mail.mail01.web.key
+smtpd_tls_cert_file = /etc/ssl/certs/mail.mail02.web.crt
+smtpd_tls_key_file = /etc/ssl/private/mail.mail02.web.key
 smtpd_tls_security_level=may
 
 smtp_tls_CApath=/etc/ssl/certs
@@ -537,11 +426,11 @@ smtp_tls_session_cache_database = btree:${data_directory}/smtp_scache
 
 
 smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_unauth_destination
-myhostname = mail.mail01.web
+myhostname = mail.mail02.web
 alias_maps = hash:/etc/aliases
 alias_database = hash:/etc/aliases
 myorigin = /etc/mailname
-mydestination = $myhostname, mail01.web, srv-smtp-01.mail01.web, localhost.mail01.web, localhost
+mydestination = $myhostname, mail02.web, srv-smtp-01.mail02.web, localhost.mail02.web, localhost
 relayhost =
 mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
 mailbox_size_limit = 0
@@ -579,6 +468,10 @@ non_smtpd_milters = $smtpd_milters
 EOF
 
 sudo systemctl restart opendkim postfix
-sudo opendkim-testkey -d mail01.web -s default -vvv
-sudo apt install opendmarc
-sudo opendmarc-check mail01.web
+
+printf 'Copy public key to your DNS and press [enter] to continue...'
+read _
+
+sudo opendkim-testkey -d mail02.web -s default -vvv
+#sudo apt install opendmarc -y
+#sudo opendmarc-check mail02.web
